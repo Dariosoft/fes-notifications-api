@@ -20,6 +20,11 @@ public class FeedBroker {
 
     public SseEmitter register(UUID tenantId, long timeoutMs) {
         SseEmitter emitter = new SseEmitter(timeoutMs);
+        subscribe(tenantId, emitter);
+        return emitter;
+    }
+
+    void subscribe(UUID tenantId, SseEmitter emitter) {
         emittersByTenant.computeIfAbsent(tenantId, id -> ConcurrentHashMap.newKeySet()).add(emitter);
         emitter.onCompletion(() -> remove(tenantId, emitter));
         emitter.onTimeout(() -> {
@@ -27,7 +32,6 @@ public class FeedBroker {
             emitter.complete();
         });
         emitter.onError(error -> remove(tenantId, emitter));
-        return emitter;
     }
 
     public void publish(FeedEvent event) {

@@ -1,7 +1,10 @@
 package com.friendlyeshop.notifications.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -14,6 +17,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import tools.jackson.databind.json.JsonMapper;
@@ -88,5 +92,80 @@ class SellerNotificationServiceTest {
         sellerNotificationService.process("amqp-message-id", BODY);
 
         verify(outOfBandSender, never()).send(any());
+    }
+
+    @Test
+    void fallsBackToTheEventIdWhenTheHeaderIsBlank() {
+        when(deliveryRepository.existsByMessageId(EVENT_ID.toString())).thenReturn(true);
+
+        sellerNotificationService.process("   ", BODY);
+
+        verify(deliveryRepository).existsByMessageId(EVENT_ID.toString());
+        verifyNoInteractions(outOfBandSender);
+    }
+
+    @Test
+    void rejectsPayloadWithoutStableIdentifier() {
+        assertThatThrownBy(() -> sellerNotificationService.process(null, "{}"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("stable message identifier");
+    }
+
+    @Test
+    void rejectsPayloadWithBlankEventId() {
+        assertThatThrownBy(() -> sellerNotificationService.process(null, "{\"eventId\":\"  \"}"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("stable message identifier");
+    }
+
+    @Test
+    void rejectsNonStringEventIdWhenTheHeaderIsMissing() {
+        assertThatThrownBy(() -> sellerNotificationService.process(null, "{\"eventId\":123}"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("stable message identifier");
+    }
+
+    @Test
+    void rejectsMalformedPayload() {
+        assertThatThrownBy(() -> sellerNotificationService.process("amqp-message-id", "{not-json"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void rejectsNonObjectPayload() {
+        assertThatThrownBy(() -> sellerNotificationService.process("amqp-message-id", "[]"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void ignoresInvalidOptionalIdentifiers() {
+        String body = "{\"eventId\":\"" + EVENT_ID + "\",\"orderId\":123,"
+                + "\"tenantId\":\"not-a-uuid\",\"eventType\":\"order.placed\"}";
+        when(deliveryRepository.existsByMessageId("amqp-message-id")).thenReturn(false);
+        when(deliveryRepository.insertIfAbsent(
+                eq("amqp-message-id"), isNull(), isNull(), eq("OUT_OF_BAND"), eq("SENT")))
+                .thenReturn(1);
+        ArgumentCaptor<OutOfBandNotification> captor =
+                ArgumentCaptor.forClass(OutOfBandNotification.class);
+
+        sellerNotificationService.process("amqp-message-id", body);
+
+        verify(outOfBandSender).send(captor.capture());
+        assertThat(captor.getValue().orderId()).isNull();
+        assertThat(captor.getValue().tenantId()).isNull();
+    }
+
+    @Test
+    void ignoresNullOptionalIdentifiers() {
+        String body = "{\"eventId\":\"" + EVENT_ID + "\",\"orderId\":null,"
+                + "\"tenantId\":null,\"eventType\":\"order.placed\"}";
+        when(deliveryRepository.existsByMessageId("amqp-message-id")).thenReturn(false);
+        when(deliveryRepository.insertIfAbsent(
+                eq("amqp-message-id"), isNull(), isNull(), eq("OUT_OF_BAND"), eq("SENT")))
+                .thenReturn(1);
+
+        sellerNotificationService.process("amqp-message-id", body);
+
+        verify(outOfBandSender).send(any(OutOfBandNotification.class));
     }
 }

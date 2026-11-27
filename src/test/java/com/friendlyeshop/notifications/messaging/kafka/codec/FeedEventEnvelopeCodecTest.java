@@ -62,6 +62,81 @@ class FeedEventEnvelopeCodecTest {
                 .hasMessageContaining("eventId");
     }
 
+    @Test
+    void rejectsNullPayload() {
+        assertThatThrownBy(() -> codec.decode(null))
+                .isInstanceOf(InvalidFeedEventException.class);
+    }
+
+    @Test
+    void rejectsBlankPayload() {
+        assertThatThrownBy(() -> codec.decode("   "))
+                .isInstanceOf(InvalidFeedEventException.class);
+    }
+
+    @Test
+    void rejectsNonObjectPayload() {
+        assertThatThrownBy(() -> codec.decode("[]"))
+                .isInstanceOf(InvalidFeedEventException.class);
+    }
+
+    @Test
+    void rejectsMissingEventType() {
+        String payload = validPayload().replace("\"eventType\":\"order.placed\",", "");
+
+        assertThatThrownBy(() -> codec.decode(payload))
+                .isInstanceOf(InvalidFeedEventException.class)
+                .hasMessageContaining("eventType");
+    }
+
+    @Test
+    void rejectsNullEventId() {
+        String payload = validPayload().replace(
+                "\"eventId\":\"" + EVENT_ID + "\"", "\"eventId\":null");
+
+        assertThatThrownBy(() -> codec.decode(payload))
+                .isInstanceOf(InvalidFeedEventException.class)
+                .hasMessageContaining("eventId");
+    }
+
+    @Test
+    void rejectsNonStringEventId() {
+        String payload = validPayload().replace(
+                "\"eventId\":\"" + EVENT_ID + "\"", "\"eventId\":123");
+
+        assertThatThrownBy(() -> codec.decode(payload))
+                .isInstanceOf(InvalidFeedEventException.class)
+                .hasMessageContaining("eventId");
+    }
+
+    @Test
+    void rejectsBlankEventType() {
+        String payload = validPayload().replace(
+                "\"eventType\":\"order.placed\"", "\"eventType\":\"\"");
+
+        assertThatThrownBy(() -> codec.decode(payload))
+                .isInstanceOf(InvalidFeedEventException.class)
+                .hasMessageContaining("eventType");
+    }
+
+    @Test
+    void rejectsInvalidOccurredAt() {
+        String payload = validPayload().replace(OCCURRED_AT.toString(), "not-an-instant");
+
+        assertThatThrownBy(() -> codec.decode(payload))
+                .isInstanceOf(InvalidFeedEventException.class)
+                .hasMessageContaining("occurredAt");
+    }
+
+    @Test
+    void rejectsMissingOrderId() {
+        String payload = validPayload().replace("\"orderId\":\"" + ORDER_ID + "\",", "");
+
+        assertThatThrownBy(() -> codec.decode(payload))
+                .isInstanceOf(InvalidFeedEventException.class)
+                .hasMessageContaining("orderId");
+    }
+
     private static String validPayload() {
         return "{\"eventId\":\"" + EVENT_ID + "\",\"orderId\":\"" + ORDER_ID + "\","
                 + "\"tenantId\":\"" + TENANT_ID + "\",\"eventType\":\"order.placed\","

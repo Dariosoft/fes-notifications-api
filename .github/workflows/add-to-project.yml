@@ -24,15 +24,18 @@ jobs:
     name: Sync issue with Friendly E-Shop project
     if: github.event_name == 'pull_request' || github.event.issue.pull_request == null
     runs-on: ubuntu-latest
+    env:
+      ADD_TO_PROJECT_PAT: ${{ secrets.ADD_TO_PROJECT_PAT }}
     steps:
       - name: Add issue to project
-        if: github.event_name == 'issues' && github.event.action != 'closed'
+        if: env.ADD_TO_PROJECT_PAT != '' && github.event_name == 'issues' && github.event.action != 'closed'
         uses: actions/add-to-project@v2
         with:
           project-url: https://github.com/orgs/Dariosoft/projects/2
           github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
 
       - name: Update status
+        if: env.ADD_TO_PROJECT_PAT != ''
         uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}

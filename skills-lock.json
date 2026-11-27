@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "clean-code-guard": {
+      "source": "amelnagdy/guard-skills",
+      "sourceType": "github",
+      "skillPath": "skills/clean-code-guard/SKILL.md",
+      "computedHash": "a037fd57c8fa0b7bd84cb274b2ea816e16622edb0245a5c2c6f23d8244eeb634"
+    },
+    "spring-boot-project-creator": {
+      "source": "giuseppe-trisciuoglio/developer-kit",
+      "sourceType": "github",
+      "skillPath": "plugins/developer-kit-java/skills/spring-boot-project-creator/SKILL.md",
+      "computedHash": "c080ba35d713a7c658eb8ee54fe21a15e58db0ada560947ef21003266f9a12c8"
+    }
+  }
+}
